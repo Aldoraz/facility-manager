@@ -1,0 +1,36 @@
+{
+  "name": "facility-manager",
+  "version": "0.1.0",
+  "description": "Manager for discord server including verification, commands and more",
+  "main": "index.js",
+  "scripts": {
+    "start": "node .",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy:dev": "node deploy/deploy_commands.js dev",
+    "deploy:prod": "node deploy/deploy_commands.js prod",
+    "delete:dev": "node deploy/delete_command.js dev",
+    "delete:prod": "node deploy/delete_command.js prod"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aldoraz/facility-manager.git"
+  },
+  "keywords": [
+    "discord.js"
+  ],
+  "author": "Aldoraz",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Aldoraz/facility-manager/issues"
+  },
+  "homepage": "https://github.com/Aldoraz/facility-manager#readme",
+  "dependencies": {
+    "colorette": "^2.0.20",
+    "discord.js": "^14.16.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "eslint": "^9.13.0",
+    "globals": "^15.11.0"
+  }
+}
