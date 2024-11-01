@@ -8,17 +8,22 @@ module.exports = {
      * @param {import("discord.js").GuildMember} member - The member to process
      */
     async execute(member) {
+        logger.info(`Member joined: ${member.user.tag}`);
         const parent = member.guild.channels.cache.get('1301635213897764997');
         if (!parent || parent.type !== ChannelType.GuildCategory) {
             logger.error('Category "border control" not found or is not a category.');
             return;
         }
 
+        const timestamp = Math.floor(Date.now() / 1000) + 300;
         const welcomeEmbed = new EmbedBuilder()
             .setColor("#5865f2")
             .setTitle('Welcome')
-            .setDescription("Please press the button below to authenticate yourself.")
-            .setFooter(`You have until <t:${Math.floor(Date.now() / 1000) + 300}:R>.`);
+            .setDescription(`By pressing the button below, you accept the TOS and privacy policy. You will be kicked in <t:${timestamp}:R>`)
+            .addFields(
+                { name: 'Privacy Policy', value: '[Click here](https://romide.com/privacy)', inline: true },
+                { name: 'Terms of Service', value: '[Click here](https://romide.com/tos)', inline: true }
+            );
 
         const authButton = new ButtonBuilder()
             .setCustomId('join_auth_button')
@@ -68,68 +73,66 @@ module.exports = {
 
                 await conformation.showModal(joinAuthModal);
 
-                const modalCollector = memberChannel.createMessageComponentCollector({ filter: collectorFilter, time: 300_000 });
-
-                modalCollector.on('collect', async interaction => {
-                    if (interaction.customId === 'join_auth_modal') {
-                        let inviteCode = interaction.fields.getTextInputValue('invite_code');
-                        const userId = interaction.user.id;
-
-                        const inviteCodeMatch = inviteCode.match(/discord\.gg\/([a-zA-Z0-9]+)/);
-                        if (inviteCodeMatch) {
-                            inviteCode = inviteCodeMatch[1];
-                        }
-
-                        // Check if the invite code is valid
-                        db.get(`SELECT id, role_id FROM invites WHERE code = ? AND expires_at > ?`, [inviteCode, Math.floor(Date.now() / 1000)], (err, row) => {
-                            if (err) {
-                                logger.error('Error querying the database:', err);
-                                return interaction.reply({ content: 'An error occurred while authenticating. Please try again later.', ephemeral: true });
-                            }
-
-                            if (!row) {
-                                return interaction.reply({ content: 'Invalid or expired invite code. Please check your code and try again.', ephemeral: true });
-                            }
-
-                            const inviteId = row.id;
-                            const roleId = row.role_id;
-
-                            const role = interaction.guild.roles.cache.get(roleId);
-                            if (role) {
-                                interaction.member.roles.add(role)
-                                    .then(() => {
-                                        // Mark the invite as used
-                                        db.run(`INSERT INTO invite_members (invite_id, member_id) VALUES (?, ?)`, [inviteId, userId], (err) => {
-                                            if (err) {
-                                                logger.error('Error inserting into invite_members:', err);
-                                            }
-                                        });
-                                        memberChannel.delete();
-                                    })
-                                    .catch(err => {
-                                        logger.error('Error assigning role:', err);
-                                        interaction.reply({ content: 'An error occurred while assigning the role. Please try again later.', ephemeral: true });
-                                    });
-                            } else {
-                                interaction.reply({ content: 'The role associated with this invite code no longer exists. Please request a new invite.', ephemeral: true });
-                            }
-                        });
-                    }
+                const modalSubmission = await conformation.awaitModalSubmit({
+                    filter: interaction => interaction.customId === 'join_auth_modal' && interaction.user.id === member.user.id,
+                    time: 300_000, // 5 minutes
                 });
 
-                modalCollector.on('end', collected => {
-                    if (collected.size === 0) {
-                        member.kick();
-                        memberChannel.delete();
+                let inviteCode = modalSubmission.fields.getTextInputValue('invite_code');
+                const userId = modalSubmission.user.id;
+
+                const inviteCodeMatch = inviteCode.match(/discord\.gg\/([a-zA-Z0-9]+)/);
+                if (inviteCodeMatch) {
+                    inviteCode = inviteCodeMatch[1];
+                }
+
+                // Check if the invite code is valid
+                db.get(`SELECT id, role_id FROM invites WHERE code = ? AND expires_at > ?`, [inviteCode, Math.floor(Date.now() / 1000)], (err, row) => {
+                    if (err) {
+                        logger.error('Error querying the database:', err);
+                        return modalSubmission.reply({ content: 'An error occurred while authenticating. Please try again later.', ephemeral: true });
+                    }
+
+                    if (!row) {
+                        return modalSubmission.reply({ content: 'Invalid or expired invite code. Please check your code and try again.', ephemeral: true });
+                    }
+
+                    const inviteId = row.id;
+                    const roleId = row.role_id;
+
+                    const role = modalSubmission.guild.roles.cache.get(roleId);
+                    if (role) {
+                        modalSubmission.member.roles.add(role)
+                            .then(() => {
+                                // Mark the invite as used
+                                db.run(`INSERT INTO invite_members (invite_id, member_id) VALUES (?, ?)`, [inviteId, userId], (err) => {
+                                    if (err) {
+                                        logger.error('Error inserting into invite_members:', err);
+                                    }
+                                });
+                                db.run(`INSERT INTO members (id, accepted_tos) VALUES (?, ?)`, [userId, true], (err) => {
+                                    if (err) {
+                                        logger.error('Error inserting into members:', err);
+                                    }
+                                });
+                                memberChannel.delete();
+                            })
+                            .catch(err => {
+                                logger.error('Error assigning role:', err);
+                                modalSubmission.reply({ content: 'An error occurred while assigning the role. Please try again later.', ephemeral: true });
+                            });
+                    } else {
+                        modalSubmission.reply({ content: 'The role associated with this invite code no longer exists. Please request a new invite.', ephemeral: true });
                     }
                 });
+            
             } catch (error) {
-                logger.error('Error during authentication process:', error);
-                await member.kick();
-                await memberChannel.delete();
-            }
-        } catch (error) {
-            logger.error('Error creating member channel:', error);
+            logger.error('Error during authentication process:', error);
+            await member.kick();
+            await memberChannel.delete();
         }
-    },
+    } catch(error) {
+        logger.error('Error creating member channel:', error);
+    }
+},
 };

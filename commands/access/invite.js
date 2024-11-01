@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const db = require('../../util/database');
-const logger = require('../../util/logger')
+const logger = require('../../util/logger');
 
 module.exports = {
     cooldown: 30,

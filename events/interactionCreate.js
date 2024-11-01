@@ -58,7 +58,7 @@ module.exports = {
         }
 
         // Handle select menu interactions
-        else if (interaction.isSelectMenu()) {
+        else if (interaction.isStringSelectMenu()) {
             logger.info(`Select menu interaction received: ${interaction.customId} by user ${interaction.user.tag}`);
             // Implement handling here
         }
