@@ -2,6 +2,7 @@ const { Events, ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder
 const db = require('../util/database');
 const logger = require('../util/logger');
 
+// TODO Refactor this mess
 module.exports = {
     name: Events.GuildMemberAdd,
     /**

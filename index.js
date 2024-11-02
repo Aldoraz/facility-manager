@@ -1,5 +1,3 @@
-// Main entry point for initializing the Discord bot client, loading commands, and handling events.
-
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
@@ -8,8 +6,10 @@ const logger = require('./util/logger');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
-
-// Command handler: Loads all commands and adds them to the client's command collection.
+// Command handler
+// TODO Refactor so errors are thrown and caught here, rather than in the individual command files.
+// Should fix the "command ran sucessfully" message when an error occurs.
+// TODO Also log the subcommand that was run.
 client.commands = new Collection();
 client.cooldowns = new Collection();
 const foldersPath = path.join(__dirname, 'commands');
@@ -25,12 +25,12 @@ for (const folder of commandFolders) {
             client.commands.set(command.data.name, command);
             logger.info(`Loaded command: ${command.data.name} from ${filePath}`);
         } else {
-            logger.warn(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
+            logger.warn(`The command at ${filePath} is missing a required "data" or "execute" property.`);
         }
     }
 }
 
-// Event handler: Loads all event files and attaches them to the bot.
+// Event handler
 const eventsPath = path.join(__dirname, 'events');
 const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
 

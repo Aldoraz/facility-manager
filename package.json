@@ -25,10 +25,10 @@
   },
   "homepage": "https://github.com/Aldoraz/facility-manager#readme",
   "dependencies": {
-    "@cubecoders/ampapi": "^1.0.1",
     "axios": "^1.7.7",
     "colorette": "^2.0.20",
     "discord.js": "^14.16.3",
+    "rcon-client": "^4.2.5",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
