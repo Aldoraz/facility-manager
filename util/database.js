@@ -16,7 +16,8 @@ db.serialize(() => {
 
     db.run(`CREATE TABLE IF NOT EXISTS members (
         id TEXT PRIMARY KEY,
-        accepted_tos BOOLEAN NOT NULL DEFAULT 0
+        accepted_tos BOOLEAN NOT NULL DEFAULT 0,
+        time_joined DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )`);
 
     db.run(`CREATE TABLE IF NOT EXISTS invite_members (

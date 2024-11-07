@@ -7,9 +7,6 @@ const logger = require('./util/logger');
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
 // Command handler
-// TODO Refactor so errors are thrown and caught here, rather than in the individual command files.
-// Should fix the "command ran sucessfully" message when an error occurs.
-// TODO Also log the subcommand that was run.
 client.commands = new Collection();
 client.cooldowns = new Collection();
 const foldersPath = path.join(__dirname, 'commands');
@@ -37,18 +34,28 @@ const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'
 for (const file of eventFiles) {
     const filePath = path.join(eventsPath, file);
     const event = require(filePath);
+
     if (event.once) {
-        client.once(event.name, (...args) => event.execute(...args));
+        client.once(event.name, async (...args) => {
+            try {
+                await event.execute(...args);
+            } catch (error) {
+                console.error(`${event.name} error: ${error.message}`);
+            }
+        });
         logger.info(`Loaded one-time event: ${event.name} from ${filePath}`);
     } else {
-        client.on(event.name, (...args) => event.execute(...args));
+        client.on(event.name, async (...args) => {
+            try {
+                await event.execute(...args);
+            } catch (error) {
+                console.error(`${event.name} error: ${error.message}`);
+            }
+        });
         logger.info(`Loaded recurring event: ${event.name} from ${filePath}`);
     }
 }
 
-// Log into Discord with the bot token
-client.login(token).then(() => {
-    logger.info('Bot successfully authenticated.');
-}).catch((error) => {
-    logger.error('Failed to authenticate bot:', error);
-});
+
+// Login
+client.login(token)
