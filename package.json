@@ -1,6 +1,6 @@
 {
   "name": "facility-manager",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Manager for discord server including verification, commands and more",
   "main": "index.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "deploy:prod": "cross-env NODE_ENV=prod node deploy/deploy_commands.js",
     "delete:dev": "cross-env NODE_ENV=dev node deploy/delete_command.js",
     "delete:prod": "cross-env NODE_ENV=prod node deploy/delete_command.js"
-},
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Aldoraz/facility-manager.git"
