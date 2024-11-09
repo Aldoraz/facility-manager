@@ -1,11 +1,20 @@
+require('dotenv').config({ 
+    path: process.env.NODE_ENV === 'prod' ? '.env.prod' : '.env.dev' 
+});
 const { Events } = require('discord.js');
 const commandRouter = require('./base/commandRouter');
 const memberAuth = require('./memberManagement/memberAuth');
 const logger = require('../util/logger');
 
+const currentServerId = process.env.SERVER_ID;
+
 module.exports = {
     name: Events.InteractionCreate,
     async execute(interaction) {
+        if (interaction.guild.id !== currentServerId) {
+            logger.info(`Event from outside the current environment detected (guild ID: ${interaction.guild.id}). Event ignored.`);
+            return;
+        }
         if (interaction.isChatInputCommand()) {
             // Handles slash commands
             commandRouter(interaction);
