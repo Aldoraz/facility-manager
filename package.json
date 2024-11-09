@@ -1,6 +1,6 @@
 {
   "name": "facility-manager",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Manager for discord server including verification, commands and more",
   "main": "index.js",
   "scripts": {
