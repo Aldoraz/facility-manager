@@ -1,6 +1,10 @@
+require('dotenv').config({
+    path: process.env.NODE_ENV === 'prod' ? '.env.prod' : '.env.dev'
+});
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const db = require('../../util/database');
 const logger = require('../../util/logger');
+const invite_id = process.env.INVITE_CHANNEL_ID;
 
 module.exports = {
     cooldown: 30,
@@ -12,7 +16,7 @@ module.exports = {
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
-        const channel = interaction.guild.channels.cache.get("1301585831529812059");
+        const channel = interaction.guild.channels.cache.get(invite_id);
         const categoryName = interaction.channel?.parent?.name;
         const role = interaction.guild.roles.cache.find(role => role.name.toLowerCase() === categoryName.toLowerCase());
         const createdBy = interaction.user.id;
@@ -35,8 +39,8 @@ module.exports = {
         }
 
         channel.createInvite({
-            maxAge: 1800, 
-            maxUses: 5, 
+            maxAge: 43200, // 12 hours
+            maxUses: 3, // 3 tries 
             reason: `Created by ${interaction.user.tag} for ${categoryName}`,
             temporary: true,
             unique: true

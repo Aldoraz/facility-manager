@@ -1,27 +1,34 @@
+require('dotenv').config({
+    path: process.env.NODE_ENV === 'prod' ? '.env.prod' : '.env.dev'
+});
 const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, ChannelType, PermissionsBitField, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const logger = require('../../util/logger');
 const db = require('../../util/database');
+const parentId = process.env.AUTH_PARENT;
+
+
 /**
  * @param {import("discord.js").GuildMember} member
 */
-// TODO: Add member to db with accepted_tos = false and time_joined = Date.now()
 async function newMemberJoined(member) {
-    logger.info(`Creating auth channel for: ${member.user.tag}`);
+    logger.info(`Creating auth channel for: "${member.user.tag}"`);
 
-    const authChannelParent = member.guild.channels.cache.get('1301635213897764997');
-    if (!authChannelParent) throw new Error('Parent channel was deleted.');
+    const authChannelParent = member.guild.channels.cache.get(parentId);
+    if (!authChannelParent) logger.error('Auth channel parent not found');
 
-    const timeTillKick = 300;
-    const kickTimestamp = Math.floor(Date.now() / 1000) + timeTillKick;
+    const now = Math.floor(Date.now() / 1000);
+    const timeTillKick = 1800; //30 min
+    const kickTimestamp = now + timeTillKick;
+
+    db.run(`INSERT INTO members (id, accepted_tos, time_joined) VALUES (?, ?, ?)`, [member.user.id, false, now], (err) => {
+        if (err) logger.error('Error new member inserting into members:', err);
+    });
 
     const welcomeEmbed = new EmbedBuilder()
         .setColor("#5865f2")
         .setTitle('Welcome')
-        .setDescription(`By pressing the button below, you accept the TOS and privacy policy.\nUse your invite link to authentificate yourself.\nYou will be kicked in <t:${kickTimestamp}:R>`)
-        .addFields(
-            { name: 'Privacy Policy', value: '[Click here](https://romide.com/privacy)', inline: true },
-            { name: 'Terms of Service', value: '[Click here](https://romide.com/tos)', inline: true }
-        );
+        .setDescription(`By pressing the button below, you accept the [TOS](https://romide.com/tos) and [privacy policy](https://romide.com/privacy).\nUse your invite link to authentificate yourself.\nYou will be kicked in <t:${kickTimestamp}:R>`)
+
 
     const authButton = new ButtonBuilder()
         .setCustomId('join_auth_button')
@@ -41,111 +48,101 @@ async function newMemberJoined(member) {
                 { id: member.guild.roles.everyone.id, deny: [PermissionsBitField.Flags.ViewChannel] },
             ],
         })
-        await memberChannel.send({ embeds: [welcomeEmbed], components: [buttonRow] });
-        setTimeout(timeout, timeTillKick * 1000, { member, memberChannel });
-    } catch (error) {
-        throw new Error('Error creating member channel:', error);
+        await memberChannel.send({ content: `<@${member.user.id}>`,embeds: [welcomeEmbed], components: [buttonRow] });
+        setTimeout(() => checkAuthStatus({ member, memberChannel }), timeTillKick * 1000);
+    } catch (err) {
+        logger.error('Error creating new member channel / embed:', err);
     }
-    
 }
 
 /**
  * 
  * @param {import("discord.js").Interaction} interaction 
  */
-// TODO: Check if 5 minutes have passed since the member joined
 async function newMemberAuthButtonPressed(interaction) {
-        const joinAuthModal = new ModalBuilder()
-            .setCustomId('join_auth_modal')
-            .setTitle('Authentication');
+    const joinAuthModal = new ModalBuilder()
+        .setCustomId('join_auth_modal')
+        .setTitle('Authentication');
 
-        const authInput = new TextInputBuilder()
-            .setCustomId('invite_code')
-            .setLabel('Invite Link')
-            .setPlaceholder('discord.gg/<invite_code>')
-            .setMinLength(8)
-            .setMaxLength(32)
-            .setStyle(TextInputStyle.Short);
+    const authInput = new TextInputBuilder()
+        .setCustomId('invite_code')
+        .setLabel('Invite Link')
+        .setPlaceholder('discord.gg/<invite_code>')
+        .setMinLength(7)
+        .setMaxLength(32)
+        .setStyle(TextInputStyle.Short);
 
-        const authInputRow = new ActionRowBuilder().addComponents(authInput);
-        joinAuthModal.addComponents(authInputRow);
+    const authInputRow = new ActionRowBuilder().addComponents(authInput);
+    joinAuthModal.addComponents(authInputRow);
 
-        await interaction.showModal(joinAuthModal);
+    return interaction.showModal(joinAuthModal);
 }
 
 /**
  * @param {import("discord.js").Interaction} interaction 
  */
-// TODO: Fix insert, check if 5min have passed since the member joined, modularize user kicking
 async function newMemberAuthModalSubmitted(interaction) {
-
     let inviteCode = interaction.fields.getTextInputValue('invite_code');
     const userId = interaction.user.id;
 
     const inviteCodeMatch = inviteCode.match(/discord\.gg\/([a-zA-Z0-9]+)/);
-    if (inviteCodeMatch) {
-        inviteCode = inviteCodeMatch[1];
-    }
+    if (!inviteCodeMatch) return interaction.reply({ content: 'Invalid invite link / code.', ephemeral: true });
+    inviteCode = inviteCodeMatch[1];
 
     // Check if the invite code is valid
     db.get(`SELECT id, role_id FROM invites WHERE code = ? AND expires_at > ?`, [inviteCode, Math.floor(Date.now() / 1000)], (err, row) => {
-        if (err) {
-            logger.error('Error querying the database:', err);
-            return interaction.reply({ content: 'An error occurred while authenticating. Please try again later.', ephemeral: true });
-        }
-
-        if (!row) {
-            return interaction.reply({ content: 'Invalid or expired invite code. Please check your code and try again.', ephemeral: true });
+        if (err || !row) {
+            logger.error(`Couldnt GET invite info or invite ran out: ${err}`);
+            return interaction.reply({ content: 'An error occurred while authenticating.', ephemeral: true });
         }
 
         const inviteId = row.id;
         const roleId = row.role_id;
 
         const role = interaction.guild.roles.cache.get(roleId);
-        if (role) {
-            interaction.member.roles.add(role)
-                .then(() => {
-                    // Mark the invite as used
-                    db.run(`INSERT INTO invite_members (invite_id, member_id) VALUES (?, ?)`, [inviteId, userId], (err) => {
-                        if (err) {
-                            logger.error('Error inserting into invite_members:', err);
-                        }
-                    });
-                    db.run(`INSERT INTO members (id, accepted_tos) VALUES (?, ?)`, [userId, true], (err) => {
-                        if (err) {
-                            logger.error('Error inserting into members:', err);
-                        }
-                    });
-                    interaction.channel.delete();
-                })
-                .catch(err => {
-                    logger.error('Error assigning role:', err);
-                    interaction.reply({ content: 'An error occurred while assigning the role. Please try again later.', ephemeral: true });
-                });
-        } else {
-            interaction.reply({ content: 'The role associated with this invite code no longer exists. Please request a new invite.', ephemeral: true });
+        if (!role) {
+            logger.error(`Auth role with id ${roleId} not found`);
+            return interaction.reply({ content: 'An error occurred while authenticating.', ephemeral: true });
         }
+
+
+        interaction.member.roles.add(role)
+            .then(async() => {
+                db.run(`INSERT INTO invite_members (invite_id, member_id) VALUES (?, ?)`, [inviteId, userId], (err) => {
+                    if (err) logger.error(`Couldn't insert into invite_members: ${err}`);
+                    
+                });
+                db.run(`UPDATE members SET accepted_tos = ? WHERE id = ?`, [true, userId], (err) => {
+                    if (err) logger.error('Error updating members:', err);
+
+                });
+                await interaction.reply({ content: 'Authentication successful!', ephemeral: true });
+                await interaction.channel.delete();
+            }).catch(err => {
+                logger.error(`Couldn't assign role: ${err}`);
+                return interaction.reply({ content: 'An error occurred while assigning the role. Please try again later.', ephemeral: true });
+            });
     });
 }
 
-// TODO: Make accept interaction / member
-async function timeout(timeoutInfo) {
-    const { member, timeoutChannel } = timeoutInfo;
-    if (!member || !timeoutChannel) return;
-    await member.kick('Failed to authenticate within 5 minutes.');
-    await timeoutChannel.delete();
-
-}
-
-
-
-
-
-
-
-
-    
-
+/**
+ * @param {import("discord.js").GuildMember} member
+ * @param {import("discord.js").GuildChannel} memberChannel
+*/
+async function checkAuthStatus({ member, memberChannel }) {
+    db.get(`SELECT * FROM members WHERE id = ?`, [member.user.id], async (err, row) => {
+        if (err) logger.error(`Couldn't GET new member info: ${err.message}`);
         
+        if (row && row.accepted_tos) return;
+
+        try {
+            await member.kick('Failed to authenticate within 30 minutes.');
+            await memberChannel.delete();
+            logger.info(`Kicked member "${member.user.tag}" for not authenticating within 30 minutes`);
+        } catch (err) {
+            logger.error('Error kicking member or deleting channel:', err);
+        }
+    });
+}
 
 module.exports = { newMemberJoined, newMemberAuthButtonPressed, newMemberAuthModalSubmitted };

@@ -1,7 +1,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
-const { token } = require('./config.json');
+require('dotenv').config({
+    path: process.env.NODE_ENV === 'prod' ? '.env.prod' : '.env.dev'
+});
+const token = process.env.DISCORD_TOKEN;
 const logger = require('./util/logger');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
@@ -40,7 +43,7 @@ for (const file of eventFiles) {
             try {
                 await event.execute(...args);
             } catch (error) {
-                console.error(`${event.name} error: ${error.message}`);
+                logger.error(`${event.name} error: ${error.message}`);
             }
         });
         logger.info(`Loaded one-time event: ${event.name} from ${filePath}`);
@@ -49,7 +52,7 @@ for (const file of eventFiles) {
             try {
                 await event.execute(...args);
             } catch (error) {
-                console.error(`${event.name} error: ${error.message}`);
+                logger.error(`${event.name} error: ${error.message}`);
             }
         });
         logger.info(`Loaded recurring event: ${event.name} from ${filePath}`);

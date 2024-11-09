@@ -5,4 +5,5 @@ module.exports = {
     name: Events.GuildMemberAdd,
     async execute(member) {
         memberAuth.newMemberJoined(member);
-    }};
+    }
+};

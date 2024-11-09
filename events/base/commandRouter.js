@@ -35,7 +35,7 @@ async function commandRouter(interaction) {
             ? `${interaction.commandName} ${subcommand}`
             : interaction.commandName;
 
-        logger.info(`Successfully executed command: ${commandName} by user ${interaction.user.tag}`);
+        logger.info(`Successfully executed command: "${commandName}" by "${interaction.user.tag}"`);
     } catch (error) {
         const subcommand = interaction.options.getSubcommand(false);
         const commandName = subcommand

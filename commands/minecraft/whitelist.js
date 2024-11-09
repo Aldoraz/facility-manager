@@ -1,7 +1,11 @@
+const { Rcon } = require('rcon-client');
+require('dotenv').config({
+    path: process.env.NODE_ENV === 'prod' ? '.env.prod' : '.env.dev'
+});
 const { SlashCommandBuilder } = require('discord.js');
 const logger = require('../../util/logger');
-const { Rcon } = require('rcon-client');
-const { rcon_port, rcon_password } = require('../../config.json');
+const rcon_port = process.env.RCON_PORT;
+const rcon_password = process.env.RCON_PASSWORD;
 
 
 /**
