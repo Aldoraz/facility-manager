@@ -7,7 +7,6 @@ const logger = require('../../util/logger');
 const rcon_port = process.env.RCON_PORT;
 const rcon_password = process.env.RCON_PASSWORD;
 
-
 /**
  * @type {{ cooldown: number, data: SlashCommandBuilder }}
  */

@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, AttachmentBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
 const logger = require('../../util/logger');
 const path = require('path');
 
@@ -7,7 +7,6 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('log')
         .setDescription('Get the bot’s log file')
-        .setDefaultMemberPermissions(PermissionFlagsBits.ADMINISTRATOR)
         .addSubcommand(subcommand =>
             subcommand
                 .setName('cur')

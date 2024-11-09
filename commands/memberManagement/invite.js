@@ -7,7 +7,7 @@ const logger = require('../../util/logger');
 const invite_id = process.env.INVITE_CHANNEL_ID;
 
 module.exports = {
-    cooldown: 30,
+    cooldown: 15,
     data: new SlashCommandBuilder()
         .setName('invite')
         .setDescription('Create a temporary invite for a friend'),
